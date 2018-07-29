@@ -14,9 +14,11 @@ var baseURL = url.URL{
 	Host:   "api.thetvdb.com",
 }
 
-type QueryOption func(*http.Request)
+type RequestOption func(*http.Request)
 
-func WithLanguage(language string) QueryOption {
+type QueryOption func(*url.Values)
+
+func withLanguage(language string) RequestOption {
 	return func (req *http.Request) {
 		if len(language) > 0 {
 			req.Header.Set("Accept-Language", language)
@@ -24,11 +26,44 @@ func WithLanguage(language string) QueryOption {
 	}
 }
 
+func WithAiredSeasonNumber(seasonNumber int) QueryOption {
+	return withQueryIntOption("airedSeason", seasonNumber)
+}
+
+func WithAiredEpisodeNumber(episodeNumber int) QueryOption {
+	return withQueryIntOption("airedEpisode", episodeNumber)
+}
+
+func WithDVDSeasonNumber(seasonNumber int) QueryOption {
+	return withQueryIntOption("dvdSeason", seasonNumber)
+}
+
+func WithDVDEpisodeNumber(episodeNumber int) QueryOption {
+	return withQueryIntOption("dvdEpisode", episodeNumber)
+}
+
+func WithAbsoluteEpisodeNumber(episodeNumber int) QueryOption {
+	return withQueryIntOption("absoluteNumber", episodeNumber)
+}
+
+func withQueryIntOption(name string, value int) QueryOption {
+	return func(v *url.Values) {
+		v.Set(name, fmt.Sprintf("%d", value))
+	}
+}
+
+func withQueryOption(name, value string) QueryOption {
+	return func(v *url.Values) {
+		v.Set(name, value)
+	}
+}
+
 type Client interface {
 	Token() string
 	Options() ClientOptions
-	SearchSeriesByName(string, ...QueryOption) ([]SeriesSearchResult, error)
-	SeriesByID(int, ...QueryOption) (*Series, error)
+	SearchSeriesByName(seriesName string, language string) ([]SeriesSearchResult, error)
+	SeriesByID(id int, language string) (*Series, error)
+	EpisodesBySeriesID(seriesID int, language string, filters ...QueryOption) ([]Episode, error)
 }
 
 type ClientOptions struct {
@@ -56,17 +91,25 @@ func NewClient(options ClientOptions) (Client, error) {
 	return c, nil
 }
 
-func (c *client) URL(path string) url.URL {
+func (c *client) URL(path string, options ...QueryOption) url.URL {
 	ret := baseURL
 	ret.Path = path
+
+	if len(options) > 0 {
+		q := ret.Query()
+		for _, opt := range options {
+			opt(&q)
+		}
+		ret.RawQuery = q.Encode()
+	}
 	return ret
 }
 
 func (c *client) Languages() ([]Language, error) {
 	var data LanguageData
-	url := c.URL("/languages")
+	fullURL := c.URL("/languages")
 
-	if err := c.get(url, &data); err != nil {
+	if err := c.get(fullURL, &data); err != nil {
 		return data.Data, err
 	}
 	if len(data.Error) > 0 {
@@ -83,24 +126,42 @@ func (c *client) Options() ClientOptions {
 	return c.options
 }
 
-func (c *client) SeriesByID(id int, options ...QueryOption) (*Series, error) {
+func (c *client) SeriesByID(id int, language string) (*Series, error) {
 	var data SeriesData
-	url := c.URL(fmt.Sprintf("/series/%d", id))
-	if err := c.get(url, &data, options...); err != nil {
+	fullURL := c.URL(fmt.Sprintf("/series/%d", id))
+	if err := c.get(fullURL, &data, withLanguage(language)); err != nil {
 		return nil, err
 	}
 	return data.Data, nil
 }
 
-func (c *client) SearchSeriesByName(name string, options ...QueryOption) ([]SeriesSearchResult, error) {
+func (c *client) EpisodesBySeriesID(seriesID int, language string, filters ...QueryOption) ([]Episode, error) {
+	uri := fmt.Sprintf("/series/%d/episodes", seriesID)
+	if len(filters) > 0 {
+		uri += "/query"
+	}
 
-	url := c.URL("/search/series")
-	q := url.Query()
-	q.Set("name", name)
-	url.RawQuery = q.Encode()
+	var data SeriesEpisodesData
+	var episodes []Episode
 
+	last := 2
+	for page := 1; page < last; page++ {
+		filtersWithPage := append(filters, withQueryIntOption("page", page))
+		fullURL := c.URL(uri, filtersWithPage...)
+		if err := c.get(fullURL, &data, withLanguage(language)); err != nil {
+			return nil, err
+		}
+		last = data.Pages.Last
+
+		episodes = append(episodes, data.Data...)
+	}
+	return episodes, nil
+}
+
+func (c *client) SearchSeriesByName(name, language string) ([]SeriesSearchResult, error) {
 	var result SeriesSearchResults
-	err := c.get(url, &result, options...)
+	fullURL := c.URL("/search/series", withQueryOption("name", name))
+	err := c.get(fullURL, &result, withLanguage(language))
 	return result.Data, err
 }
 
@@ -134,7 +195,7 @@ func (c *client) login() error {
 	return nil
 }
 
-func (c *client) get(url url.URL, out interface{}, options ...QueryOption) error {
+func (c *client) get(url url.URL, out interface{}, options ...RequestOption) error {
 	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
 		return err
