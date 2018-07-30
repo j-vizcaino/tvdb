@@ -16,8 +16,6 @@ func main() {
 	// Creates a new TVDB client, performs login
 	clt, err := tvdb.NewClient(tvdb.ClientOptions{
 		APIKey:   "your-api-key",
-		UserKey:  "your-unique-id",
-		Username: "thisisme",
 		Language: "en",
 	})
 	if err != nil {
