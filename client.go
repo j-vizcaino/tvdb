@@ -61,15 +61,17 @@ func withQueryOption(name, value string) QueryOption {
 type Client interface {
 	Token() string
 	Options() ClientOptions
-	SearchSeriesByName(seriesName string, language string) ([]SeriesSearchResult, error)
-	SeriesByID(id int, language string) (*Series, error)
-	EpisodesBySeriesID(seriesID int, language string, filters ...QueryOption) ([]Episode, error)
+	WithLanguage(language string) Client
+	SearchSeriesByName(seriesName string) ([]SeriesSearchResult, error)
+	SeriesByID(id int) (*Series, error)
+	EpisodesBySeriesID(seriesID int, filters ...QueryOption) ([]Episode, error)
 }
 
 type ClientOptions struct {
 	APIKey   string
 	UserKey  string
 	Username string
+	Language string
 }
 
 type client struct {
@@ -126,16 +128,21 @@ func (c *client) Options() ClientOptions {
 	return c.options
 }
 
-func (c *client) SeriesByID(id int, language string) (*Series, error) {
+func (c* client) WithLanguage(language string) Client {
+	c.options.Language = language
+	return c
+}
+
+func (c *client) SeriesByID(id int) (*Series, error) {
 	var data SeriesData
 	fullURL := c.URL(fmt.Sprintf("/series/%d", id))
-	if err := c.get(fullURL, &data, withLanguage(language)); err != nil {
+	if err := c.get(fullURL, &data, withLanguage(c.options.Language)); err != nil {
 		return nil, err
 	}
 	return data.Data, nil
 }
 
-func (c *client) EpisodesBySeriesID(seriesID int, language string, filters ...QueryOption) ([]Episode, error) {
+func (c *client) EpisodesBySeriesID(seriesID int,filters ...QueryOption) ([]Episode, error) {
 	uri := fmt.Sprintf("/series/%d/episodes", seriesID)
 	if len(filters) > 0 {
 		uri += "/query"
@@ -148,7 +155,7 @@ func (c *client) EpisodesBySeriesID(seriesID int, language string, filters ...Qu
 	for page := 1; page < last; page++ {
 		filtersWithPage := append(filters, withQueryIntOption("page", page))
 		fullURL := c.URL(uri, filtersWithPage...)
-		if err := c.get(fullURL, &data, withLanguage(language)); err != nil {
+		if err := c.get(fullURL, &data, withLanguage(c.options.Language)); err != nil {
 			return nil, err
 		}
 		last = data.Pages.Last
@@ -158,10 +165,10 @@ func (c *client) EpisodesBySeriesID(seriesID int, language string, filters ...Qu
 	return episodes, nil
 }
 
-func (c *client) SearchSeriesByName(name, language string) ([]SeriesSearchResult, error) {
+func (c *client) SearchSeriesByName(name string) ([]SeriesSearchResult, error) {
 	var result SeriesSearchResults
 	fullURL := c.URL("/search/series", withQueryOption("name", name))
-	err := c.get(fullURL, &result, withLanguage(language))
+	err := c.get(fullURL, &result, withLanguage(c.options.Language))
 	return result.Data, err
 }
 
