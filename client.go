@@ -1,4 +1,4 @@
-// tvdb package provides a Go client implementation of The TVDB API v2
+// Package tvdb provides a Go client implementation of The TVDB API v2
 package tvdb
 
 import (
@@ -29,30 +29,35 @@ func withLanguage(language string) requestOption {
 }
 
 // WithAiredSeasonNumber filters episodes matching the given season number.
-// This function should be used with EpisodesBySeriesID
+//
+// This function should be used with EpisodesBySeriesID.
 func WithAiredSeasonNumber(seasonNumber int) QueryOption {
 	return withQueryIntOption("airedSeason", seasonNumber)
 }
 
 // WithAiredEpisodeNumber filters episodes matching the given episode number.
-// This function should be used with EpisodesBySeriesID
+//
+// This function should be used with EpisodesBySeriesID.
 func WithAiredEpisodeNumber(episodeNumber int) QueryOption {
 	return withQueryIntOption("airedEpisode", episodeNumber)
 }
 
 // WithDVDSeasonNumber filters episodes matching the given DVD season number.
+//
 // This function should be used with EpisodesBySeriesID
 func WithDVDSeasonNumber(seasonNumber int) QueryOption {
 	return withQueryIntOption("dvdSeason", seasonNumber)
 }
 
 // WithDVDEpisodeNumber filters episodes matching the given DVD episode number.
+//
 // This function should be used with EpisodesBySeriesID
 func WithDVDEpisodeNumber(episodeNumber int) QueryOption {
 	return withQueryIntOption("dvdEpisode", episodeNumber)
 }
 
 // WithAbsoluteEpisodeNumber filters episodes matching the given absolute episode number.
+//
 // This function should be used with EpisodesBySeriesID
 func WithAbsoluteEpisodeNumber(episodeNumber int) QueryOption {
 	return withQueryIntOption("absoluteNumber", episodeNumber)
@@ -71,6 +76,7 @@ func withQueryOption(name, value string) QueryOption {
 }
 
 // ClientOptions represents options for a TVDB client.
+//
 // Either APIKey or UserKey and Username are mandatory for login.
 // Language provides a hint to return result in the given language and can be changed dynamically
 // using the WithLanguage() helper.
@@ -89,6 +95,7 @@ type client struct {
 }
 
 // NewClient creates a new TVDB client.
+//
 // The function immediately tries to login and returns the handle of the new client.
 func NewClient(options ClientOptions) (*client, error) {
 	c := &client{
