@@ -75,15 +75,6 @@ func withQueryOption(name, value string) QueryOption {
 	}
 }
 
-type Client interface {
-	Token() string
-	Options() ClientOptions
-	WithLanguage(language string) Client
-	SearchSeriesByName(seriesName string) ([]SeriesSearchResult, error)
-	SeriesByID(id int) (*Series, error)
-	EpisodesBySeriesID(seriesID int, filters ...QueryOption) ([]Episode, error)
-}
-
 // ClientOptions represents options for a TVDB client.
 //
 // Either APIKey or UserKey and Username are mandatory for login.
@@ -96,7 +87,8 @@ type ClientOptions struct {
 	Language string
 }
 
-type client struct {
+// Client to query the TVDB
+type Client struct {
 	token       string
 	tokenDate   time.Time
 	httpClient  *http.Client
@@ -106,8 +98,8 @@ type client struct {
 // NewClient creates a new TVDB client.
 //
 // The function immediately tries to login and returns the handle of the new client.
-func NewClient(options ClientOptions) (Client, error) {
-	c := &client{
+func NewClient(options ClientOptions) (*Client, error) {
+	c := &Client{
 		httpClient: &http.Client{},
 		options:    options,
 	}
@@ -119,7 +111,7 @@ func NewClient(options ClientOptions) (Client, error) {
 }
 
 // URL builds a request URL for the given path and options.
-func (c *client) URL(path string, options ...QueryOption) url.URL {
+func (c *Client) URL(path string, options ...QueryOption) url.URL {
 	ret := baseURL
 	ret.Path = path
 
@@ -134,7 +126,7 @@ func (c *client) URL(path string, options ...QueryOption) url.URL {
 }
 
 // Languages returns a list of languages supported by The TVDB.
-func (c *client) Languages() ([]Language, error) {
+func (c *Client) Languages() ([]Language, error) {
 	var data LanguageData
 	fullURL := c.URL("/languages")
 
@@ -148,23 +140,23 @@ func (c *client) Languages() ([]Language, error) {
 }
 
 // Token returns the JWT used for authentication.
-func (c *client) Token() string {
+func (c *Client) Token() string {
 	return c.token
 }
 
 // Options returns a copy of the options used by the client.
-func (c *client) Options() ClientOptions {
+func (c *Client) Options() ClientOptions {
 	return c.options
 }
 
 // WithLanguage updates the client default language and returns a shallow copy of the client handle.
-func (c* client) WithLanguage(language string) Client {
+func (c *Client) WithLanguage(language string) *Client {
 	c.options.Language = language
 	return c
 }
 
-// SieriesByID returns a single  series information given a TVDB ID.
-func (c *client) SeriesByID(id int) (*Series, error) {
+// SeriesByID returns a single  series information given a TVDB ID.
+func (c *Client) SeriesByID(id int) (*Series, error) {
 	var data SeriesData
 	fullURL := c.URL(fmt.Sprintf("/series/%d", id))
 	if err := c.get(fullURL, &data, withLanguage(c.options.Language)); err != nil {
@@ -177,7 +169,7 @@ func (c *client) SeriesByID(id int) (*Series, error) {
 //
 // When no filters are provided, this function returns all the episodes of the series.
 // Filters can be used to get, for example, all the episodes from a given season, or a single episode in a season.
-func (c *client) EpisodesBySeriesID(seriesID int,filters ...QueryOption) ([]Episode, error) {
+func (c *Client) EpisodesBySeriesID(seriesID int,filters ...QueryOption) ([]Episode, error) {
 	uri := fmt.Sprintf("/series/%d/episodes", seriesID)
 	if len(filters) > 0 {
 		uri += "/query"
@@ -203,14 +195,14 @@ func (c *client) EpisodesBySeriesID(seriesID int,filters ...QueryOption) ([]Epis
 // SearchSeriesByName returns a list of series matching name.
 //
 // Results are returned in the configured client language.
-func (c *client) SearchSeriesByName(name string) ([]SeriesSearchResult, error) {
+func (c *Client) SearchSeriesByName(name string) ([]SeriesSearchResult, error) {
 	var result SeriesSearchResults
 	fullURL := c.URL("/search/series", withQueryOption("name", name))
 	err := c.get(fullURL, &result, withLanguage(c.options.Language))
 	return result.Data, err
 }
 
-func (c *client) login() error {
+func (c *Client) login() error {
 	loginData := map[string]string{
 		"apiKey":   c.options.APIKey,
 		"userKey":  c.options.UserKey,
@@ -240,7 +232,7 @@ func (c *client) login() error {
 	return nil
 }
 
-func (c *client) get(url url.URL, out interface{}, options ...requestOption) error {
+func (c *Client) get(url url.URL, out interface{}, options ...requestOption) error {
 	req, err := http.NewRequest("GET", url.String(), nil)
 	if err != nil {
 		return err
