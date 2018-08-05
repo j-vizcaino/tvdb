@@ -58,15 +58,6 @@ func withQueryOption(name, value string) QueryOption {
 	}
 }
 
-type Client interface {
-	Token() string
-	Options() ClientOptions
-	WithLanguage(language string) Client
-	SearchSeriesByName(seriesName string) ([]SeriesSearchResult, error)
-	SeriesByID(id int) (*Series, error)
-	EpisodesBySeriesID(seriesID int, filters ...QueryOption) ([]Episode, error)
-}
-
 type ClientOptions struct {
 	APIKey   string
 	UserKey  string
@@ -81,7 +72,7 @@ type client struct {
 	options     ClientOptions
 }
 
-func NewClient(options ClientOptions) (Client, error) {
+func NewClient(options ClientOptions) (*client, error) {
 	c := &client{
 		httpClient: &http.Client{},
 		options:    options,
@@ -128,7 +119,7 @@ func (c *client) Options() ClientOptions {
 	return c.options
 }
 
-func (c* client) WithLanguage(language string) Client {
+func (c* client) WithLanguage(language string) *client {
 	c.options.Language = language
 	return c
 }
