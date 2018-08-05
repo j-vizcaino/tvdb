@@ -75,6 +75,15 @@ func withQueryOption(name, value string) QueryOption {
 	}
 }
 
+type Client interface {
+	Token() string
+	Options() ClientOptions
+	WithLanguage(language string) Client
+	SearchSeriesByName(seriesName string) ([]SeriesSearchResult, error)
+	SeriesByID(id int) (*Series, error)
+	EpisodesBySeriesID(seriesID int, filters ...QueryOption) ([]Episode, error)
+}
+
 // ClientOptions represents options for a TVDB client.
 //
 // Either APIKey or UserKey and Username are mandatory for login.
@@ -97,7 +106,7 @@ type client struct {
 // NewClient creates a new TVDB client.
 //
 // The function immediately tries to login and returns the handle of the new client.
-func NewClient(options ClientOptions) (*client, error) {
+func NewClient(options ClientOptions) (Client, error) {
 	c := &client{
 		httpClient: &http.Client{},
 		options:    options,
@@ -149,7 +158,7 @@ func (c *client) Options() ClientOptions {
 }
 
 // WithLanguage updates the client default language and returns a shallow copy of the client handle.
-func (c* client) WithLanguage(language string) *client {
+func (c* client) WithLanguage(language string) Client {
 	c.options.Language = language
 	return c
 }
