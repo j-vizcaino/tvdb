@@ -1,3 +1,5 @@
+[![GoDoc](https://godoc.org/github.com/j-vizcaino/tvdb?status.png)](https://godoc.org/github.com/j-vizcaino/tvdb)
+
 # TheTVDB API v2 Go library
 
 This provides an (incomplete) [API v2](https://api.thetvdb.com/swagger) client for querying [TheTVDB](https://www.thetvdb.com).
